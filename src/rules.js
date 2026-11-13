@@ -94,7 +94,7 @@ export function forecastLowUntil(ctx, untilHm) {
 export const tonightLow = (ctx) => forecastLowUntil(ctx, '08:00');
 
 // Warm-up speed in °C per minute (AC sensor), by outside temperature. Starting values
-// come from a portable heat-pump AC in a garden office (Oct–Nov 2026); each rule then
+// come from an Electriq Easy-fit EIQ-9WMINV in a garden office (Oct–Nov 2026); each rule then
 // learns its own.
 export const WARMUP_BUCKETS = [
   ['lt0', -Infinity, 0], ['0-3', 0, 3], ['3-6', 3, 6], ['6-9', 6, 9], ['9-12', 9, 12], ['12+', 12, Infinity],

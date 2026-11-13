@@ -1,4 +1,4 @@
-// What the Electriq Easy-fit air conditioner (Tuya model 00000035n3) accepts.
+// What the Electriq Easy-fit air conditioner, EIQ-9WMINV (Tuya model 00000035n3), accepts.
 export const WRITABLE = {
   Power: { type: 'bool' },
   temp_set: { type: 'int', min: 16, max: 32 },

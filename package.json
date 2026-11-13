@@ -1,6 +1,6 @@
 {
   "name": "tuya-ac",
-  "description": "Web app and smart heating for the Electriq Easy-fit air conditioner (Tuya / Smart Life), on Cloudflare's free plan",
+  "description": "Web app and smart heating for the Electriq Easy-fit EIQ-9WMINV air conditioner (Tuya / Smart Life), on Cloudflare's free plan",
   "private": true,
   "type": "module",
   "scripts": {

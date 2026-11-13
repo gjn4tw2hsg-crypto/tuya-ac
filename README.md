@@ -1,6 +1,8 @@
 # Tuya AC for the Electriq Easy-fit air conditioner
 
-A web app for the **Electriq Easy-fit** air conditioner (heat pump), which connects through
+A web app for the **Electriq Easy-fit** air conditioner, model
+[**EIQ-9WMINV**](https://www.electriq.co.uk/p/eiq-9wminv/electriq-9000-btu-panasonic-powered-smart-wall-mounted-split-air-conditioner-with-heat-pump-5-meters-pipe-kit-and-5)
+(9000 BTU, Panasonic-powered, wall-mounted split with heat pump), which connects through
 Tuya's Smart Life app. Control it from your phone,
 see the room and outside temperature, and let it heat or cool by itself with rules, including a
 **smart warm-up** that has the room ready by a set time, judged from the weather forecast and how
@@ -11,7 +13,7 @@ server, no monthly cost.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/gjn4tw2hsg-crypto/tuya-ac)
 
-> **Made for the Electriq Easy-fit** (Tuya model `00000035n3`) and tested on it. Other Tuya air
+> **Made for the Electriq Easy-fit EIQ-9WMINV** (Tuya model `00000035n3`) and tested on it. Other Tuya air
 > conditioners may work if they report the same controls (`Power`, `temp_set`, `temp_current`,
 > `mode`, `windspeed`, …); ones that use different names won't respond until `src/ac.js` is
 > adjusted.
