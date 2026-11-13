@@ -19,3 +19,6 @@ node_modules/
 
 # Your own deploy settings (domain, IDs) — see README › Your own copy with your own settings
 wrangler.mine.jsonc
+
+# Your own notes with your details — never committed
+private/
