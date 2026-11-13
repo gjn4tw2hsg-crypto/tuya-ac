@@ -20,12 +20,36 @@ server, no monthly cost.
 
 ## Step by step
 
-You need: your Electriq Easy-fit already working in the **Smart Life** (or Tuya Smart) app, a
-**GitHub** account, and a free **Cloudflare** account. Allow about 30 minutes.
+You need your Electriq Easy-fit already working in the **Smart Life** (or Tuya Smart) app, and three
+free accounts: **Tuya Developer**, **Cloudflare** and **GitHub**. Allow about 40 minutes the
+first time.
+
+### 0. Create the free accounts (about 10 minutes)
+
+**Tuya Developer** (gives the app permission to talk to your air conditioner):
+
+1. Go to [platform.tuya.com](https://platform.tuya.com) and press **Sign Up** (or **Register**).
+2. Choose your **country**, enter your email, and type the code Tuya emails you. Set a password.
+3. If it asks what kind of account, pick **Individual developer**. You don't need a company.
+4. This is a separate account from your Smart Life app login; you'll link the two in step 1.
+
+**Cloudflare** (runs the app for free):
+
+1. Go to [dash.cloudflare.com/sign-up](https://dash.cloudflare.com/sign-up), enter your email and
+   a password, and confirm the email Cloudflare sends.
+2. Stay on the **Free** plan. No card is needed, and you don't need a website or domain.
+3. Open **Workers & Pages** in the left menu once. If it asks you to choose a
+   **workers.dev subdomain**, pick a short name (e.g. your surname): your app's address will be
+   `https://tuya-ac.<that-name>.workers.dev`.
+
+**GitHub** (keeps your copy of the code, so Cloudflare can install and update it):
+
+1. Go to [github.com/signup](https://github.com/signup), enter your email, a password and a
+   username, and confirm the email. The free plan is all you need.
 
 ### 1. Get your Tuya keys (about 15 minutes)
 
-1. Sign up at [platform.tuya.com](https://platform.tuya.com) (free).
+1. Sign in at [platform.tuya.com](https://platform.tuya.com).
 2. **Cloud › Development › Create Cloud Project**. Industry *Smart Home*, development method
    *Smart Home*, and the **data centre that matches your Smart Life account's region** (for the UK
    and Europe: *Central Europe*). Accept the suggested API services.
@@ -33,8 +57,10 @@ You need: your Electriq Easy-fit already working in the **Smart Life** (or Tuya 
    the Smart Life app (Me › the scan icon at the top). Your air conditioner appears under
    **All Devices**. Copy the Easy-fit's **Device ID**.
 4. On the project's **Overview**, copy the **Access ID** and **Access Secret**.
-5. Check **Service API** includes *IoT Core*. Its free trial lasts a few months; when Tuya emails
-   that it's ending, extend it on the same page (free for personal use).
+5. Check **Service API** includes *IoT Core*. It starts as a free trial for a limited time. When
+   Tuya emails that it's ending, go to **Cloud › Cloud Services › IoT Core** and apply to extend
+   it (free for personal use). If it lapses, the app can't reach the air conditioner until it's
+   extended.
 
 ### 2. Put the app in your Cloudflare account (about 5 minutes)
 
