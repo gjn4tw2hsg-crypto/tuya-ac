@@ -328,7 +328,7 @@ function summarize(def) {
   }
   if (def.kind === 'warmup') {
     const w = def.warmup;
-    return `${w.mode === 'cold' ? 'Cool' : 'Warm'} to ${w.target}° by ${w.at}, ${describeDays(def.days)}${conds} — starts between ${w.earliest} and ${w.at}, judged from the room, the weather and earlier mornings`;
+    return `${w.mode === 'cold' ? 'Cool' : 'Warm'} to ${w.target}° by ${w.at}, ${describeDays(def.days)}${conds} — starts between ${w.earliest} and ${w.at}, judged from the room, the forecast and earlier mornings`;
   }
   const th = def.thermostat;
   const mode = { cold: 'cool', hot: 'heat', auto: 'cool/heat' }[th.mode];
@@ -612,7 +612,7 @@ function warmupFields(w, rates) {
   wrap.append(h('div', { class: 'inline' },
     field('Never start before', h('input', { type: 'time', value: w.earliest, oninput: (e) => (w.earliest = e.target.value) })),
     field('Spare minutes', h('input', { type: 'number', min: 0, max: 60, step: 5, value: w.marginMin ?? 15, oninput: (e) => (w.marginMin = Number(e.target.value)) }))));
-  wrap.append(h('p', { class: 'small muted' }, 'It switches on once a day, as late as it safely can, then stays on so the unit holds the temperature itself. Colder mornings start earlier. It learns how long warming up really takes for each outside temperature.'));
+  wrap.append(h('p', { class: 'small muted' }, 'It switches on once a day, as late as it safely can, then stays on so the unit holds the temperature itself. It goes by the room, the outside temperature and the forecast until the ready time, so colder mornings start earlier. It learns how long warming up really takes for each outside temperature.'));
   const learned = WARMUP_BANDS.filter(([k]) => rates?.[k]);
   if (learned.length) {
     wrap.append(h('p', { class: 'small muted', style: 'margin-bottom:0' }, 'Learned so far, with outside at: ' +

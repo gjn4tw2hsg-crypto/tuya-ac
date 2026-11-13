@@ -70,24 +70,28 @@ export function resolveSource(src, ctx) {
   }
 }
 
-// The lowest forecast temperature from now until the next 08:00 (local time), from the
+// The lowest forecast temperature from now until the next `untilHm` (local time), from the
 // hourly forecast. Hourly times are local ("2026-11-13T05:00"), so they compare as strings.
-export function tonightLow(ctx) {
+export function forecastLowUntil(ctx, untilHm) {
   const hourly = ctx.weather?.hourly;
   const local = ctx.local;
-  if (!Array.isArray(hourly) || !hourly.length || !local?.date) return null;
+  const until = hmToMin(untilHm);
+  if (!Array.isArray(hourly) || !hourly.length || !local?.date || until == null) return null;
   const hour = Math.floor(local.minutes / 60);
   const from = `${local.date}T${String(hour).padStart(2, '0')}:00`;
   let endDate = local.date;
-  if (hour >= 8) {
+  if (hour * 60 >= until) {
     const d = new Date(`${local.date}T12:00:00Z`);
     d.setUTCDate(d.getUTCDate() + 1);
     endDate = d.toISOString().slice(0, 10);
   }
-  const to = `${endDate}T08:00`;
+  const to = `${endDate}T${untilHm.padStart(5, '0')}`;
   const temps = hourly.filter((p) => p.t >= from && p.t <= to && typeof p.temp === 'number').map((p) => p.temp);
   return temps.length ? Math.min(...temps) : null;
 }
+
+// Tonight's low: the lowest forecast temperature from now until the next 08:00.
+export const tonightLow = (ctx) => forecastLowUntil(ctx, '08:00');
 
 // Warm-up speed in °C per minute (AC sensor), by outside temperature. Starting values
 // come from this AC's own warm-ups (Oct–Nov 2026); each rule then learns its own.
@@ -195,7 +199,11 @@ export function evaluateRules(rules, ctx) {
       const earliest = hmToMin(w.earliest) ?? (at == null ? null : at - 180);
       const margin = Number(w.marginMin ?? 15) || 0;
       const room = resolveSource('room', ctx);
-      const outside = resolveSource('outside', ctx);
+      // Judge by the colder of now and the forecast until the ready-by time: a frost
+      // that's still coming slows the warm-up (defrosting) just as much as one now.
+      const outsideNow = resolveSource('outside', ctx);
+      const ahead = forecastLowUntil(ctx, w.at);
+      const outside = outsideNow == null ? ahead : ahead == null ? outsideNow : Math.min(outsideNow, ahead);
       const m = local.minutes;
       st.rates ||= {};
       if (st.date !== local.date) Object.assign(st, { date: local.date, started: null, done: false });
@@ -221,7 +229,7 @@ export function evaluateRules(rules, ctx) {
         if (m >= at || (!alreadyWarm && m >= at - need)) {
           const mode = w.mode === 'cold' ? 'cold' : 'hot';
           fire({ Power: true, mode, temp_set: clampTemp(target), ...(w.fan ? { windspeed: String(w.fan) } : {}) },
-            m >= at ? `ready by ${w.at}` : `ready by ${w.at}: about ${need} min needed (room ${room}°, outside ${outside ?? '?'}°)`);
+            m >= at ? `ready by ${w.at}` : `ready by ${w.at}: about ${need} min needed (room ${room}°, outside ${outsideNow ?? '?'}°${ahead != null ? `, forecast low to ${w.at} ${ahead}°` : ''})`);
           notify(`ready by ${w.at}`);
           st.started = { ts: now, room, outside };
         }

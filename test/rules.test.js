@@ -211,3 +211,16 @@ test('ready-by starts earlier when it is colder, then learns', () => {
   assert.equal(evaluateRules([rule(5, def)], ctx('09:30', 10, 0)).commands.length, 0);
   assert.ok(WARMUP_DEFAULT_RATES['9-12'] > WARMUP_DEFAULT_RATES.lt0);
 });
+
+test('ready-by also looks at the forecast until the ready-by time', () => {
+  const def = { kind: 'warmup', days: [], conditions: [], warmup: { at: '08:00', earliest: '05:00', target: 25, mode: 'hot', fan: null, marginMin: 15 } };
+  // 10° now at 06:00, but a frost (−1°) forecast at 07:00: plan as if −1° → start now (well before 07:04).
+  const temps = Array.from({ length: 48 }, (_, i) => (i === 7 ? -1 : 10));
+  const ctx = (weather) => ({ now: 1e9, local: day('2026-11-16', '06:00', 1), ac: { Power: false, temp_current: 16 }, weather });
+  const frostAhead = evaluateRules([rule(5, def)], ctx({ temp: 10, hourly: hourly('2026-11-16', temps) }));
+  assert.equal(frostAhead.commands.length, 1);
+  assert.match(frostAhead.commands[0].reason, /forecast low to 08:00 -1°/);
+  assert.equal(frostAhead.states.get(5).started.outside, -1); // learns under "below 0°"
+  // Same morning without the frost in the forecast: waits.
+  assert.equal(evaluateRules([rule(5, def)], ctx({ temp: 10, hourly: hourly('2026-11-16', temps.map(() => 10)) })).commands.length, 0);
+});
