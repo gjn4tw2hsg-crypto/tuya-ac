@@ -1,6 +1,7 @@
-# Tuya AC
+# Tuya AC for the Electriq Easy-fit air conditioner
 
-A web app for a Tuya (Smart Life) Wi-Fi air conditioner or heat pump. Control it from your phone,
+A web app for the **Electriq Easy-fit** air conditioner (heat pump), which connects through
+Tuya's Smart Life app. Control it from your phone,
 see the room and outside temperature, and let it heat or cool by itself with rules, including a
 **smart warm-up** that has the room ready by a set time, judged from the weather forecast and how
 long warming up took on earlier days.
@@ -10,14 +11,14 @@ server, no monthly cost.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/gjn4tw2hsg-crypto/tuya-ac)
 
-> **Will it work with my unit?** It was built for an Electriq portable AC (Tuya model `00000035n3`).
-> Other Tuya air conditioners that report the same controls (`Power`, `temp_set`, `temp_current`,
-> `mode`, `windspeed`, …) work as they are. Units that use different names won't respond until
-> `src/ac.js` is adjusted.
+> **Made for the Electriq Easy-fit** (Tuya model `00000035n3`) and tested on it. Other Tuya air
+> conditioners may work if they report the same controls (`Power`, `temp_set`, `temp_current`,
+> `mode`, `windspeed`, …); ones that use different names won't respond until `src/ac.js` is
+> adjusted.
 
 ## Step by step
 
-You need: the air conditioner already working in the **Smart Life** (or Tuya Smart) app, a
+You need: your Electriq Easy-fit already working in the **Smart Life** (or Tuya Smart) app, a
 **GitHub** account, and a free **Cloudflare** account. Allow about 30 minutes.
 
 ### 1. Get your Tuya keys (about 15 minutes)
@@ -28,7 +29,7 @@ You need: the air conditioner already working in the **Smart Life** (or Tuya Sma
    and Europe: *Central Europe*). Accept the suggested API services.
 3. In the project, **Devices › Link App Account › Add App Account**, and scan the QR code with
    the Smart Life app (Me › the scan icon at the top). Your air conditioner appears under
-   **All Devices**. Copy its **Device ID**.
+   **All Devices**. Copy the Easy-fit's **Device ID**.
 4. On the project's **Overview**, copy the **Access ID** and **Access Secret**.
 5. Check **Service API** includes *IoT Core*. Its free trial lasts a few months; when Tuya emails
    that it's ending, extend it on the same page (free for personal use).
