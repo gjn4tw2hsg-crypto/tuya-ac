@@ -1,0 +1,37 @@
+{
+  "name": "tuya-ac",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "deploy:mine": "wrangler d1 migrations apply DB --remote -c wrangler.mine.jsonc && wrangler deploy -c wrangler.mine.jsonc",
+    "db:local": "wrangler d1 migrations apply DB --local",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  },
+  "cloudflare": {
+    "bindings": {
+      "TUYA_CLIENT_ID": {
+        "description": "**Access ID** of your cloud project at [platform.tuya.com](https://platform.tuya.com) \u203a Cloud \u203a Development \u203a your project \u203a Overview."
+      },
+      "TUYA_CLIENT_SECRET": {
+        "description": "**Access Secret** from the same page."
+      },
+      "TUYA_DEVICE_ID": {
+        "description": "Your air conditioner's **Device ID**: your project \u203a Devices \u203a All Devices (after linking your Smart Life app)."
+      },
+      "APP_PASSWORD": {
+        "description": "The password you'll type to open the app. Use a long one: the app is on a public address."
+      },
+      "TUYA_BASE": {
+        "description": "Your Tuya data centre. Leave as is for Central Europe; Western America `https://openapi.tuyaus.com`, China `https://openapi.tuyacn.com`, India `https://openapi.tuyain.com`."
+      },
+      "DB": {
+        "description": "Stores your settings, rules and readings. Created for you."
+      }
+    }
+  }
+}

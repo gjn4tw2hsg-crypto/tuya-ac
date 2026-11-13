@@ -1,0 +1,4 @@
+TUYA_CLIENT_ID=your-tuya-access-id
+TUYA_CLIENT_SECRET=your-tuya-access-secret
+TUYA_DEVICE_ID=your-air-conditioner-device-id
+APP_PASSWORD=choose-a-long-password

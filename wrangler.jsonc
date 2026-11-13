@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tuya-ac",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+
+  // Served on your free <name>.<your-subdomain>.workers.dev address. The app asks for the
+  // APP_PASSWORD before it does anything, and locks an address out after 10 wrong tries.
+  "workers_dev": true,
+  "preview_urls": false,
+
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Every minute; the engine itself decides whether to poll (Settings → poll interval).
+  "triggers": { "crons": ["* * * * *"] },
+
+  // No database_id: Cloudflare creates the database on the first deploy.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tuya-ac",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "vars": {
+    // Your Tuya data centre: EU https://openapi.tuyaeu.com, Western America
+    // https://openapi.tuyaus.com, China https://openapi.tuyacn.com, India https://openapi.tuyain.com
+    "TUYA_BASE": "https://openapi.tuyaeu.com"
+  },
+  // Secrets (asked for by the Deploy button, or `npx wrangler secret put NAME`):
+  // TUYA_CLIENT_ID, TUYA_CLIENT_SECRET, TUYA_DEVICE_ID, APP_PASSWORD. See .dev.vars.example.
+
+  "observability": { "enabled": true }
+}

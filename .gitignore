@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Local Wrangler state (local D1/KV data, caches)
+.wrangler/
+
+# Secrets and local env — never commit
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
+# OS / editor noise
+.DS_Store
+
+# Your own deploy settings (domain, IDs) — see README › Your own copy with your own settings
+wrangler.mine.jsonc
