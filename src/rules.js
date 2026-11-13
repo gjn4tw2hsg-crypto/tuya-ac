@@ -7,6 +7,10 @@
 //                doesn't fight manual changes), inside an optional time window.
 //   thermostat – while active, switches the AC on/off to hold `target` measured
 //                by any sensor (the AC's own, a room sensor, or the sensor average).
+//   warmup     – "ready by": switches on once a day, early enough for the room to reach
+//                `target` by `at`, judged from the room and outside temperature and from
+//                how fast it warmed up on earlier days (learned, per outside temperature).
+//                It then leaves the AC on, so the unit holds the temperature itself.
 
 import { actionProps } from './ac.js';
 
@@ -54,6 +58,7 @@ export function resolveSource(src, ctx) {
     case 'outside_humidity': return num(ctx.weather?.humidity);
     case 'forecast_max': return num(ctx.weather?.todayMax);
     case 'forecast_min': return num(ctx.weather?.todayMin);
+    case 'tonight_min': return tonightLow(ctx);
     case 'sensors_avg': {
       const vals = Object.values(ctx.sensors || {}).map((s) => num(s?.temp)).filter((v) => v != null);
       return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
@@ -63,6 +68,44 @@ export function resolveSource(src, ctx) {
       if (src?.startsWith('sensor_hum:')) return num(ctx.sensors?.[src.slice(11)]?.humidity);
       return null;
   }
+}
+
+// The lowest forecast temperature from now until the next 08:00 (local time), from the
+// hourly forecast. Hourly times are local ("2026-11-13T05:00"), so they compare as strings.
+export function tonightLow(ctx) {
+  const hourly = ctx.weather?.hourly;
+  const local = ctx.local;
+  if (!Array.isArray(hourly) || !hourly.length || !local?.date) return null;
+  const hour = Math.floor(local.minutes / 60);
+  const from = `${local.date}T${String(hour).padStart(2, '0')}:00`;
+  let endDate = local.date;
+  if (hour >= 8) {
+    const d = new Date(`${local.date}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    endDate = d.toISOString().slice(0, 10);
+  }
+  const to = `${endDate}T08:00`;
+  const temps = hourly.filter((p) => p.t >= from && p.t <= to && typeof p.temp === 'number').map((p) => p.temp);
+  return temps.length ? Math.min(...temps) : null;
+}
+
+// Warm-up speed in °C per minute (AC sensor), by outside temperature. Starting values
+// come from this AC's own warm-ups (Oct–Nov 2026); each rule then learns its own.
+export const WARMUP_BUCKETS = [
+  ['lt0', -Infinity, 0], ['0-3', 0, 3], ['3-6', 3, 6], ['6-9', 6, 9], ['9-12', 9, 12], ['12+', 12, Infinity],
+];
+export const WARMUP_DEFAULT_RATES = { lt0: 0.05, '0-3': 0.06, '3-6': 0.09, '6-9': 0.14, '9-12': 0.22, '12+': 0.27 };
+
+export function warmupBucket(outside) {
+  if (typeof outside !== 'number') return '0-3'; // no weather: assume it's cold
+  return WARMUP_BUCKETS.find(([, lo, hi]) => outside >= lo && outside < hi)[0];
+}
+
+// Minutes the room needs to get from `room` to `target`.
+export function warmupMinutes(room, outside, target, rates = {}) {
+  const key = warmupBucket(outside);
+  const rate = rates[key] || WARMUP_DEFAULT_RATES[key];
+  return Math.max(0, Math.ceil((target - room) / rate));
 }
 
 // true / false / undefined (= can't tell, e.g. weather or a sensor is unavailable)
@@ -143,6 +186,44 @@ export function evaluateRules(rules, ctx) {
             notify('conditions met');
           }
           st.lastCond = cond;
+        }
+      }
+    } else if (def.kind === 'warmup') {
+      const w = def.warmup || {};
+      const at = hmToMin(w.at);
+      const target = Number(w.target);
+      const earliest = hmToMin(w.earliest) ?? (at == null ? null : at - 180);
+      const margin = Number(w.marginMin ?? 15) || 0;
+      const room = resolveSource('room', ctx);
+      const outside = resolveSource('outside', ctx);
+      const m = local.minutes;
+      st.rates ||= {};
+      if (st.date !== local.date) Object.assign(st, { date: local.date, started: null, done: false });
+
+      // Learn from today's warm-up: once the room is there (or an hour after the deadline).
+      if (st.started && !st.done && room != null && (room >= target - 0.5 || m >= at + 60)) {
+        const mins = (now - st.started.ts) / 60_000;
+        const rise = room - st.started.room;
+        if (mins >= 15 && rise >= 1) {
+          const key = warmupBucket(st.started.outside);
+          const rate = rise / mins;
+          const old = st.rates[key];
+          st.rates[key] = Math.round((old ? old * 0.6 + rate * 0.4 : rate) * 10000) / 10000;
+          logs.push(`${rule.name}: warmed ${st.started.room}° → ${room}° in ${Math.round(mins)} min with ${st.started.outside ?? '?'}° outside — will use this next time`);
+        }
+        st.done = true;
+      }
+
+      if (!st.started && at != null && Number.isFinite(target) && dayOk(def.days, local.dow) &&
+          m >= earliest && m < at + 60 && evalConditions(def.conditions, ctx) !== false) {
+        const need = room == null ? 90 : warmupMinutes(room, outside, target, st.rates) + margin;
+        const alreadyWarm = room != null && room >= target - 0.5;
+        if (m >= at || (!alreadyWarm && m >= at - need)) {
+          const mode = w.mode === 'cold' ? 'cold' : 'hot';
+          fire({ Power: true, mode, temp_set: clampTemp(target), ...(w.fan ? { windspeed: String(w.fan) } : {}) },
+            m >= at ? `ready by ${w.at}` : `ready by ${w.at}: about ${need} min needed (room ${room}°, outside ${outside ?? '?'}°)`);
+          notify(`ready by ${w.at}`);
+          st.started = { ts: now, room, outside };
         }
       }
     } else if (def.kind === 'thermostat') {

@@ -149,3 +149,65 @@ test('thermostat takes over an AC already on at window start, but respects a mid
   const res3 = evaluateRules([r3], { now: 1e8, local: at(2, '08:00'), ac: { Power: true, mode: 'hot', temp_set: 16, temp_current: 29 } });
   assert.deepEqual(mergeCommands(res3.commands), { Power: false });
 });
+
+// ---------- tonight's low and ready-by ----------
+import { tonightLow, warmupMinutes, WARMUP_DEFAULT_RATES } from '../src/rules.js';
+
+const hourly = (startDate, temps) => temps.map((temp, i) => {
+  const d = new Date(`${startDate}T00:00:00Z`);
+  d.setUTCHours(i);
+  return { t: d.toISOString().slice(0, 13) + ':00', temp };
+});
+const day = (date, hm, dow = 5) => {
+  const [h, m] = hm.split(':').map(Number);
+  return { dow, minutes: h * 60 + m, date, hm };
+};
+
+test("tonight's low looks from now to the next 08:00", () => {
+  // Fri 13th: 0–23h, then Sat 14th 0–23h. Coldest tonight is Sat 05:00 (−2); Sat 10:00 (−5) is after 08:00.
+  const temps = Array.from({ length: 48 }, (_, i) => (i === 29 ? -2 : i === 34 ? -5 : i === 3 ? -9 : 6));
+  const weather = { hourly: hourly('2026-11-13', temps) };
+  assert.equal(tonightLow({ weather, local: day('2026-11-13', '15:05') }), -2);
+  // Before 08:00 it means the rest of this night: Fri 03:00 (−9) is already past at 04:10.
+  assert.equal(tonightLow({ weather, local: day('2026-11-13', '04:10') }), 6);
+  assert.equal(tonightLow({ weather: null, local: day('2026-11-13', '15:05') }), null);
+  const r = rule(9, { kind: 'schedule', at: '15:05', days: [], conditions: [{ src: 'tonight_min', op: '>=', value: 5 }], action: { power: 'off' } });
+  const res = evaluateRules([r], { now: 1, local: day('2026-11-13', '15:05'), ac: { Power: true }, weather });
+  assert.equal(res.commands.length, 0); // −2 tonight: stays on
+});
+
+test('ready-by starts earlier when it is colder, then learns', () => {
+  const def = { kind: 'warmup', days: [], conditions: [], warmup: { at: '08:00', earliest: '05:00', target: 25, mode: 'hot', fan: null, marginMin: 15 } };
+  const ctx = (hm, room, outside, now = 1e9) => ({ now, local: day('2026-11-16', hm, 1), ac: { Power: true, mode: 'hot', temp_current: room }, weather: { temp: outside } });
+
+  // Mild (10° out), room 16°: 9° at 0.22°/min ≈ 41 min + 15 → starts about 07:04.
+  const need = warmupMinutes(16, 10, 25) + 15;
+  assert.equal(need, 41 + 15);
+  assert.equal(evaluateRules([rule(5, def)], ctx('07:00', 16, 10)).commands.length, 0);
+  const mild = evaluateRules([rule(5, def)], ctx('07:05', 16, 10));
+  assert.deepEqual(mild.commands[0].props, { Power: true, mode: 'hot', temp_set: 25 });
+
+  // Frost (−1° out), room 16°: 9° at 0.05°/min = 180 min → as early as allowed (05:00).
+  const frost = evaluateRules([rule(5, def)], ctx('05:00', 16, -1));
+  assert.equal(frost.commands.length, 1);
+
+  // Fires once a day only.
+  const r = rule(5, def, frost.states.get(5));
+  assert.equal(evaluateRules([r], ctx('05:05', 16.5, -1)).commands.length, 0);
+
+  // Reached 24.5° 120 min later: learns 8.5°/120 min for "below 0°", blended 60/40 with nothing → that rate.
+  const done = evaluateRules([r], ctx('07:00', 24.5, 2, 1e9 + 120 * 60_000));
+  const rates = done.states.get(5).rates;
+  assert.ok(Math.abs(rates.lt0 - 8.5 / 120) < 0.001, JSON.stringify(rates));
+  assert.equal(done.logs.length, 1);
+
+  // Already warm at 08:00 (e.g. a mild day): still switches on at the deadline to hold it.
+  const warm = evaluateRules([rule(5, def)], ctx('08:00', 25, 12));
+  assert.equal(warm.commands.length, 1);
+  assert.equal(evaluateRules([rule(5, def)], ctx('07:30', 25, 12)).commands.length, 0);
+
+  // Not on its days / after 09:00: nothing.
+  assert.equal(evaluateRules([rule(5, { ...def, days: [6, 7] })], ctx('07:59', 10, 0)).commands.length, 0);
+  assert.equal(evaluateRules([rule(5, def)], ctx('09:30', 10, 0)).commands.length, 0);
+  assert.ok(WARMUP_DEFAULT_RATES['9-12'] > WARMUP_DEFAULT_RATES.lt0);
+});

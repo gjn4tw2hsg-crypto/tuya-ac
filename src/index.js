@@ -26,13 +26,13 @@ async function body(request) {
 
 // ---------- rules ----------
 
-const KINDS = ['schedule', 'condition', 'thermostat'];
+const KINDS = ['schedule', 'condition', 'thermostat', 'warmup'];
 const OPS = ['>', '>=', '<', '<=', '='];
-const SOURCE_RE = /^(room|target|ac_on|outside|outside_feels|outside_humidity|forecast_max|forecast_min|sensors_avg|sensor:[\w-]+|sensor_hum:[\w-]+)$/;
+const SOURCE_RE = /^(room|target|ac_on|outside|outside_feels|outside_humidity|forecast_max|forecast_min|tonight_min|sensors_avg|sensor:[\w-]+|sensor_hum:[\w-]+)$/;
 
 function cleanRule(input) {
   const def = input.def || {};
-  if (!KINDS.includes(def.kind)) throw new HttpError(400, 'Rule kind must be schedule, condition or thermostat');
+  if (!KINDS.includes(def.kind)) throw new HttpError(400, 'Rule kind must be schedule, condition, thermostat or warmup');
   const name = String(input.name || '').trim().slice(0, 80);
   if (!name) throw new HttpError(400, 'Rule needs a name');
   const days = Array.isArray(def.days) ? [...new Set(def.days.map(Number).filter((d) => d >= 1 && d <= 7))].sort() : [];
@@ -52,12 +52,31 @@ function cleanRule(input) {
   if (def.kind === 'schedule') {
     out.at = hm(def.at);
     if (!out.at) throw new HttpError(400, 'Schedule needs a time (HH:MM)');
+  } else if (def.kind === 'warmup') {
+    out.window = null;
   } else {
     const from = hm(def.window?.from);
     const to = hm(def.window?.to);
     out.window = from && to ? { from, to } : null;
   }
-  if (def.kind === 'thermostat') {
+  if (def.kind === 'warmup') {
+    const w = def.warmup || {};
+    const at = hm(w.at);
+    const earliest = hm(w.earliest);
+    if (!at || !earliest) throw new HttpError(400, 'Ready-by needs a time and an earliest start (HH:MM)');
+    if (hmToMin(earliest) >= hmToMin(at)) throw new HttpError(400, 'The earliest start must be before the ready-by time');
+    const target = Number(w.target);
+    if (!Number.isFinite(target) || target < 16 || target > 32) throw new HttpError(400, 'Ready-by temperature must be 16–32°');
+    out.warmup = {
+      at,
+      earliest,
+      target: Math.round(target),
+      mode: w.mode === 'cold' ? 'cold' : 'hot',
+      fan: w.fan ? validateProps({ windspeed: w.fan }).windspeed : null,
+      marginMin: Math.min(60, Math.max(0, Math.round(Number(w.marginMin ?? 15)))),
+    };
+    out.notify = def.notify ? String(def.notify).slice(0, 200) : '';
+  } else if (def.kind === 'thermostat') {
     const th = def.thermostat || {};
     const target = Number(th.target);
     if (!Number.isFinite(target) || target < 10 || target > 35) throw new HttpError(400, 'Thermostat target must be 10–35°');
@@ -200,12 +219,13 @@ async function api(request, env, url) {
     const b = await body(request);
     // A bare { enabled } toggles without touching the definition.
     if (Object.keys(b).length === 1 && 'enabled' in b) {
-      await env.DB.prepare("UPDATE rules SET enabled = ?, state = '{}', updated = ? WHERE id = ?").bind(b.enabled ? 1 : 0, Date.now(), id).run();
+      await env.DB.prepare(`UPDATE rules SET enabled = ?, state = CASE WHEN json_extract(state, '$.rates') IS NOT NULL THEN json_object('rates', json(json_extract(state, '$.rates'))) ELSE '{}' END, updated = ? WHERE id = ?`).bind(b.enabled ? 1 : 0, Date.now(), id).run();
       return json({ ok: true });
     }
     const r = cleanRule(b);
-    // Definition changed: reset state so the rule starts fresh.
-    await env.DB.prepare("UPDATE rules SET name = ?, enabled = ?, def = ?, state = '{}', updated = ? WHERE id = ?")
+    // Definition changed: reset state so the rule starts fresh (but keep what a
+    // ready-by rule has learned about warm-up speeds).
+    await env.DB.prepare(`UPDATE rules SET name = ?, enabled = ?, def = ?, state = CASE WHEN json_extract(state, '$.rates') IS NOT NULL THEN json_object('rates', json(json_extract(state, '$.rates'))) ELSE '{}' END, updated = ? WHERE id = ?`)
       .bind(r.name, r.enabled ? 1 : 0, JSON.stringify(r.def), Date.now(), id)
       .run();
     return json({ ok: true });

@@ -280,6 +280,7 @@ function sourceOptions() {
     ['outside_feels', 'Outside feels-like'],
     ['forecast_max', "Today's forecast high"],
     ['forecast_min', "Today's forecast low"],
+    ['tonight_min', "Tonight's forecast low (to 08:00)"],
     ['outside_humidity', 'Outside humidity %'],
     ['target', 'AC target temp'],
     ['ac_on', 'AC is on (1 = on, 0 = off)'],
@@ -325,6 +326,10 @@ function summarize(def) {
   if (def.kind === 'condition') {
     return `When${conds.replace(/^ if/, '')}${win}, ${describeDays(def.days)}: ${[describeAction(def.action), def.notify && 'notify'].filter(Boolean).join(' + ')}`;
   }
+  if (def.kind === 'warmup') {
+    const w = def.warmup;
+    return `${w.mode === 'cold' ? 'Cool' : 'Warm'} to ${w.target}° by ${w.at}, ${describeDays(def.days)}${conds} — starts between ${w.earliest} and ${w.at}, judged from the room, the weather and earlier mornings`;
+  }
   const th = def.thermostat;
   const mode = { cold: 'cool', hot: 'heat', auto: 'cool/heat' }[th.mode];
   return `Hold ${th.target}° (±${th.band}) by ${sourceLabel(th.sensor)}, ${mode}${win || ' all day'}, ${describeDays(def.days)}${conds}`;
@@ -363,7 +368,7 @@ function renderRules() {
     const order = h('div', { class: 'order' },
       h('button', { 'aria-label': 'Move up', disabled: i === 0, onclick: () => move(i, -1) }, '▲'),
       h('button', { 'aria-label': 'Move down', disabled: i === rules.length - 1, onclick: () => move(i, 1) }, '▼'));
-    const kind = { schedule: 'Schedule', condition: 'When…', thermostat: 'Thermostat' }[r.def.kind];
+    const kind = { schedule: 'Schedule', condition: 'When…', thermostat: 'Thermostat', warmup: 'Ready by' }[r.def.kind];
     list.append(h('div', { class: `rule${r.enabled ? '' : ' disabled'}` }, order,
       h('div', { class: 'body', onclick: () => openRule(r), style: 'cursor:pointer' },
         h('div', { class: 'kind' }, kind), h('div', { class: 'name' }, r.name), h('div', { class: 'sum' }, summarize(r.def))),
@@ -383,6 +388,10 @@ async function move(i, d) {
 }
 
 const TEMPLATES = [
+  {
+    title: 'Warm by start of work', desc: 'Weekdays, have it 25° by 08:00. It works out when to start from the room, the weather and earlier mornings, then holds 25°.',
+    rule: { name: 'Warm by start of work', def: { kind: 'warmup', days: [1, 2, 3, 4, 5], conditions: [], warmup: { at: '08:00', earliest: '05:00', target: 25, mode: 'hot', fan: null, marginMin: 15 }, notify: '' } },
+  },
   {
     title: 'Pre-cool on hot days', desc: 'At 14:00, if the forecast high is over 26°, start cooling to 23°.',
     rule: { name: 'Pre-cool on hot days', def: { kind: 'schedule', at: '14:00', days: [], conditions: [{ src: 'forecast_max', op: '>', value: 26 }], action: { power: 'on', mode: 'cold', temp: 23, fan: '1' }, notify: '' } },
@@ -430,7 +439,7 @@ function openRule(r) {
   const def = editing.def;
   def.conditions ||= [];
   def.days ||= [];
-  if (def.kind !== 'thermostat') def.action ||= {};
+  if (def.kind !== 'thermostat' && def.kind !== 'warmup') def.action ||= {};
   $('#rule-title').textContent = r.id ? 'Edit rule' : 'New rule';
   $('#rule-save').hidden = false;
   renderEditor();
@@ -452,13 +461,14 @@ function renderEditor() {
   body.append(field('Name', h('input', { type: 'text', value: editing.name || '', maxlength: 80, placeholder: 'e.g. Cool the bedroom', oninput: (e) => (editing.name = e.target.value) })));
 
   const kinds = h('div', { class: 'seg' });
-  for (const [k, label] of [['schedule', 'At a time'], ['condition', 'When…'], ['thermostat', 'Thermostat']]) {
+  for (const [k, label] of [['schedule', 'At a time'], ['condition', 'When…'], ['thermostat', 'Thermostat'], ['warmup', 'Ready by']]) {
     kinds.append(h('button', {
       type: 'button', class: def.kind === k ? 'sel' : '',
       onclick: () => {
         def.kind = k;
         if (k === 'schedule') def.at ||= '08:00';
         if (k === 'thermostat') def.thermostat ||= { target: 22, band: 0.5, sensor: 'room', mode: 'cold', fan: null, offset: 1, minCycleMin: 6, offAtEnd: true };
+        else if (k === 'warmup') def.warmup ||= { at: '08:00', earliest: '05:00', target: 22, mode: 'hot', fan: null, marginMin: 15 };
         else def.action ||= {};
         if (k === 'condition') def.cooldownMin ??= 30;
         renderEditor();
@@ -484,6 +494,8 @@ function renderEditor() {
   // When
   if (def.kind === 'schedule') {
     body.append(field('Time', h('input', { type: 'time', value: def.at || '', oninput: (e) => (def.at = e.target.value) })));
+  } else if (def.kind === 'warmup') {
+    // its times are in the Ready by card below
   } else {
     const all = !def.window;
     const winBox = h('div', { class: 'inline', hidden: all },
@@ -504,12 +516,13 @@ function renderEditor() {
 
   // Conditions
   const condWrap = h('div', { class: 'field' }, h('span', { class: 'small muted', style: 'display:block' },
-    def.kind === 'condition' ? 'When all of these are true' : def.kind === 'schedule' ? 'Only if (optional)' : 'Only active while (optional)'));
+    def.kind === 'condition' ? 'When all of these are true' : def.kind === 'schedule' || def.kind === 'warmup' ? 'Only if (optional)' : 'Only active while (optional)'));
   def.conditions.forEach((c, i) => condWrap.append(condRow(c, i)));
   condWrap.append(h('button', { type: 'button', class: 'btn small', onclick: () => { def.conditions.push({ src: 'outside', op: '>', value: 20 }); renderEditor(); } }, '+ Add condition'));
   body.append(condWrap);
 
   if (def.kind === 'thermostat') body.append(thermostatFields(def.thermostat));
+  else if (def.kind === 'warmup') body.append(warmupFields(def.warmup, editing.state?.rates));
   else body.append(actionFields(def));
 
   if (def.kind === 'condition') {
@@ -581,6 +594,30 @@ function actionFields(def) {
     wrap.append(grid);
   }
   wrap.append(field('Also notify me (optional)', h('input', { type: 'text', maxlength: 200, placeholder: 'Message — needs ntfy set up in Settings', value: def.notify || '', oninput: (e) => (def.notify = e.target.value) })));
+  return wrap;
+}
+
+const WARMUP_BANDS = [['lt0', 'below 0°'], ['0-3', '0–3°'], ['3-6', '3–6°'], ['6-9', '6–9°'], ['9-12', '9–12°'], ['12+', '12° and up']];
+
+function warmupFields(w, rates) {
+  const wrap = h('div', { class: 'card', style: 'margin:16px 0 0' }, h('h2', {}, 'Ready by'));
+  wrap.append(h('div', { class: 'inline' },
+    field('Ready at', h('input', { type: 'time', value: w.at, oninput: (e) => (w.at = e.target.value) })),
+    field('Temperature (°C)', h('input', { type: 'number', min: 16, max: 32, step: 1, value: w.target, oninput: (e) => (w.target = Number(e.target.value)) }))));
+  const modes = [['cold', 'Cool']];
+  if (S?.caps?.heatPump !== false) modes.unshift(['hot', 'Heat']);
+  wrap.append(h('div', { class: 'inline' },
+    field('Mode', select(modes, w.mode, (v) => (w.mode = v))),
+    field('Fan', select([['', 'Leave as is'], ...FANS], w.fan || '', (v) => (w.fan = v || null)))));
+  wrap.append(h('div', { class: 'inline' },
+    field('Never start before', h('input', { type: 'time', value: w.earliest, oninput: (e) => (w.earliest = e.target.value) })),
+    field('Spare minutes', h('input', { type: 'number', min: 0, max: 60, step: 5, value: w.marginMin ?? 15, oninput: (e) => (w.marginMin = Number(e.target.value)) }))));
+  wrap.append(h('p', { class: 'small muted' }, 'It switches on once a day, as late as it safely can, then stays on so the unit holds the temperature itself. Colder mornings start earlier. It learns how long warming up really takes for each outside temperature.'));
+  const learned = WARMUP_BANDS.filter(([k]) => rates?.[k]);
+  if (learned.length) {
+    wrap.append(h('p', { class: 'small muted', style: 'margin-bottom:0' }, 'Learned so far, with outside at: ' +
+      learned.map(([k, label]) => `${label} ${Math.round(60 * rates[k] * 10) / 10}°/hour`).join(' · ')));
+  }
   return wrap;
 }
 

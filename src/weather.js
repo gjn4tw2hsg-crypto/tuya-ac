@@ -35,7 +35,7 @@ export async function getWeather(env, settings, { force = false } = {}) {
       todayMin: j.daily.temperature_2m_min[0],
       tomorrowMax: j.daily.temperature_2m_max[1],
       tomorrowMin: j.daily.temperature_2m_min[1],
-      // Next 24 hourly points, local time strings as returned (tz = settings.tz)
+      // Hourly points for today and tomorrow, local time strings as returned (tz = settings.tz)
       hourly: j.hourly.time.map((t, i) => ({ t, temp: j.hourly.temperature_2m[i] })),
     };
     await kvSet(env, 'weather', w);
