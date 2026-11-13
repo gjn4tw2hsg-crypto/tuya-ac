@@ -54,7 +54,22 @@ You need: your Electriq Easy-fit already working in the **Smart Life** (or Tuya 
 1. Type your password. Each phone or computer is remembered for 180 days.
 2. **Settings › Location**: search your postcode or town (for the outside temperature and forecast).
 3. **Control**: switch the unit on and off once to check it responds.
-4. On iPhone: Share › *Add to Home Screen*. On Mac Safari: File › *Add to Dock*.
+4. Put it on your phone and computer like an app (below).
+
+### Installing it like an app
+
+Open your app's address on each device, sign in once, then:
+
+| Device | How |
+| --- | --- |
+| **iPhone / iPad** (Safari) | Share button › *Add to Home Screen* › Add |
+| **Android** (Chrome) | ⋮ menu (top right) › *Add to home screen* › *Install* |
+| **Windows PC** (Edge) | ⋯ menu › *Apps* › *Install this site as an app* |
+| **Windows PC or Mac** (Chrome) | the install icon at the right of the address bar, or ⋮ › *Cast, save and share* › *Install page as app* |
+| **Mac** (Safari) | File › *Add to Dock* |
+
+It then opens in its own window with its own icon, like any other app. There's nothing to
+download from an app store, and it updates by itself whenever the app is updated.
 
 ### 4. Set up the rules for steady, economical heating (5 minutes)
 
