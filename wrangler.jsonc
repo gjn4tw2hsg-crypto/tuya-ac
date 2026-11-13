@@ -1,0 +1,41 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ac-control",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+
+  // Only reachable through the custom domain, which Cloudflare Access protects.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "ac.thepannier.co", "custom_domain": true }],
+
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Every minute; the engine itself decides whether to poll (Settings → poll interval).
+  "triggers": { "crons": ["* * * * *"] },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ac-control",
+      "database_id": "f87ae481-c503-44b9-a8f1-c8f7cce0e665",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "vars": {
+    "TUYA_BASE": "https://openapi.tuyaeu.com",
+    "TUYA_CLIENT_ID": "w5f3hwh7svvqr5vtr75x",
+    "TUYA_DEVICE_ID": "bfefd1b63666835343vuwp",
+    // Filled in after setting up Cloudflare Access (see README)
+    "ACCESS_TEAM_DOMAIN": "withered-mud-8d3e.cloudflareaccess.com",
+    "ACCESS_AUD": "e32f0915aae68ee76670ea74c7f0896a20c0dc1b129a5f4bc59dbd5b98e3b5b8"
+  },
+  // Secret, set with: npx wrangler secret put TUYA_CLIENT_SECRET
+
+  "observability": { "enabled": true }
+}

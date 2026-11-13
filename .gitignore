@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Local Wrangler state (local D1/KV data, caches)
+.wrangler/
+
+# Secrets and local env — never commit
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+*.pem
+*.key
+*.p12
+
+# OS / editor noise
+.DS_Store

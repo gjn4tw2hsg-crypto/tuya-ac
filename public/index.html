@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>AC Control</title>
+  <meta name="description" content="Control and automate the air conditioner">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#f2f3f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1014" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="AC">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <h1 id="title">Air conditioner</h1>
+      <div class="status"><span class="dot" id="online-dot"></span><span id="status-text">Loading…</span></div>
+    </header>
+
+    <!-- CONTROL -->
+    <section id="tab-control">
+      <div id="banners"></div>
+
+      <div class="card hero is-off" id="hero">
+        <div class="hero-top">
+          <div>
+            <div class="room-label">Room · AC sensor</div>
+            <div class="room-temp" id="room-temp">–</div>
+          </div>
+          <button class="power" id="power" aria-label="Power">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+          </button>
+        </div>
+        <div class="outside" id="outside"></div>
+        <div class="stepper">
+          <div class="lbl" id="target-label">Target</div>
+          <div class="group">
+            <button id="temp-down" aria-label="Lower">−</button>
+            <div class="val" id="target">–</div>
+            <button id="temp-up" aria-label="Raise">+</button>
+          </div>
+        </div>
+        <div class="target-note" id="target-note" hidden></div>
+      </div>
+
+      <div class="card">
+        <div class="seg-label">Mode</div>
+        <div class="seg mode" id="modes"></div>
+        <div class="seg-label">Fan</div>
+        <div class="seg" id="fans"></div>
+      </div>
+
+      <div class="card">
+        <div class="toggles" id="toggles"></div>
+      </div>
+
+      <div class="card" id="sensors-card" hidden>
+        <h2>Sensors</h2>
+        <div class="sensor-list" id="sensor-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div>
+            <div style="font-weight:600">Automations</div>
+            <div class="small muted" id="auto-status"></div>
+          </div>
+          <div class="spacer"></div>
+          <div id="pause-btns" class="row"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RULES -->
+    <section id="tab-rules" hidden>
+      <div class="card">
+        <div class="row" style="margin-bottom:10px">
+          <h2 style="margin:0">Rules</h2>
+          <div class="spacer"></div>
+          <button class="btn small primary" id="new-rule">+ New rule</button>
+        </div>
+        <div id="rule-list"></div>
+      </div>
+      <p class="small muted" style="margin:0 4px">Rules run in the cloud every few minutes, even when this app is closed. When two rules clash in the same check, the lower one in the list wins.</p>
+    </section>
+
+    <!-- HISTORY -->
+    <section id="tab-history" hidden>
+      <div class="card">
+        <div class="seg" id="ranges"></div>
+        <svg class="chart" id="chart" role="img" aria-label="Temperature history"></svg>
+        <div class="tip" id="tip">Touch the chart to see values.</div>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="card">
+        <div class="row" style="margin-bottom:12px">
+          <h2 style="margin:0">Activity</h2>
+          <div class="spacer"></div>
+          <div class="seg" id="log-filter" style="width:auto"></div>
+        </div>
+        <ul class="log" id="log"></ul>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings" hidden>
+      <div class="card">
+        <h2>General</h2>
+        <label class="field"><span>Name</span><input type="text" id="set-name" maxlength="60"></label>
+        <label class="field"><span>How often to check (rules react within this time)</span>
+          <select id="set-poll">
+            <option value="1">Every minute (~45k Tuya calls/month)</option>
+            <option value="2">Every 2 minutes (~22k/month)</option>
+            <option value="5">Every 5 minutes (~9k/month)</option>
+            <option value="10">Every 10 minutes (~4.5k/month)</option>
+            <option value="15">Every 15 minutes (~3k/month)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="card">
+        <h2>Location (outside weather)</h2>
+        <div class="small" id="place-now"></div>
+        <div class="inline" style="margin-top:10px">
+          <input type="text" id="place-q" placeholder="Postcode or town, e.g. SW11">
+          <button class="btn shrink" id="place-search">Search</button>
+        </div>
+        <div class="results" id="place-results"></div>
+      </div>
+
+      <div class="card">
+        <h2>Temperature sensors</h2>
+        <p class="small muted" style="margin-top:0">Add Tuya / Smart Life sensors by their device ID (Tuya console → Devices). They can then be used in rules and the thermostat.</p>
+        <div id="sensor-admin"></div>
+        <div class="inline" style="margin-top:10px">
+          <input type="text" id="sensor-id" placeholder="Device ID">
+          <input type="text" id="sensor-name" placeholder="Name, e.g. Bedroom">
+        </div>
+        <button class="btn" id="sensor-add" style="margin-top:8px">Add sensor</button>
+      </div>
+
+      <div class="card">
+        <h2>Notifications</h2>
+        <p class="small muted" style="margin-top:0">Rules can send phone notifications through <b>ntfy</b>. Install the free ntfy app, subscribe to a long random topic name, and enter the same name here.</p>
+        <div class="inline">
+          <input type="text" id="set-ntfy" placeholder="Topic, e.g. ac-7f3k9q2m">
+          <button class="btn shrink" id="ntfy-test">Test</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row"><button class="btn primary" id="save-settings">Save settings</button><div class="spacer"></div><button class="btn" id="run-tick">Run rules now</button></div>
+        <div class="row" style="margin-top:10px"><button class="btn danger" id="sign-out">Sign out on this device</button></div>
+        <p class="small muted" id="tick-info" style="margin-bottom:0"></p>
+      </div>
+    </section>
+  </div>
+
+  <div class="login" id="login" hidden>
+    <form class="login-card" id="login-form">
+      <img src="/icon-192.png" width="72" height="72" alt="">
+      <h2>AC Control</h2>
+      <p class="small muted">Enter the household password.</p>
+      <input type="text" name="username" autocomplete="username" value="AC Control" hidden>
+      <input type="password" id="login-pw" name="password" autocomplete="current-password" placeholder="Password" required>
+      <button class="btn primary" id="login-btn" type="submit">Unlock</button>
+      <div class="small login-err" id="login-err"></div>
+    </form>
+  </div>
+
+  <dialog class="sheet" id="rule-dialog">
+    <div class="sheet-head">
+      <button type="button" id="rule-cancel">Cancel</button>
+      <h3 id="rule-title">Rule</h3>
+      <button type="button" class="save" id="rule-save">Save</button>
+    </div>
+    <div class="sheet-body" id="rule-body"></div>
+  </dialog>
+
+  <nav class="tabs">
+    <div class="in">
+      <button data-tab="control" class="sel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v20M4.9 7l14.2 10M19.1 7 4.9 17"/><path d="m9 3.5 3 2.5 3-2.5M9 20.5l3-2.5 3 2.5"/></svg>Control</button>
+      <button data-tab="rules">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4M8 14h3M8 17h6"/></svg>Rules</button>
+      <button data-tab="history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 4-5 3 3 5-7"/></svg>History</button>
+      <button data-tab="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
+    </div>
+  </nav>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
